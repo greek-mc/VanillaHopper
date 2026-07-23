@@ -10,11 +10,14 @@ use ColinHDev\VanillaHopper\events\HopperPullContainerEvent;
 use ColinHDev\VanillaHopper\events\HopperPushContainerEvent;
 use ColinHDev\VanillaHopper\events\HopperPushJukeboxEvent;
 use ColinHDev\VanillaHopper\ResourceManager;
+use juqngood\hcf\brewer\Brewer;
+use juqngood\hcf\brewer\BrewerManager;
 use pocketmine\block\Block;
 use pocketmine\block\Hopper as PMMPHopper;
 use pocketmine\block\inventory\FurnaceInventory;
 use pocketmine\block\inventory\HopperInventory;
 use pocketmine\block\Jukebox;
+use pocketmine\block\tile\BrewingStand;
 use pocketmine\block\tile\Container;
 use pocketmine\block\tile\Furnace as TileFurnace;
 use pocketmine\block\tile\Jukebox as TileJukebox;
@@ -244,40 +247,64 @@ class Hopper extends PMMPHopper {
         $itemsToTransfer = ResourceManager::getInstance()->getItemsPerUpdate();
         // Hoppers interact differently when pulling from different kinds of blocks.
         //TODO: Composter
-        //TODO: Brewing Stand
         //TODO: Jukebox
         $originTile = $origin->position->getWorld()->getTile($origin->position);
         if ($originTile instanceof Container) {
             if ($originTile instanceof TileFurnace) {
-                foreach ([FurnaceInventory::SLOT_FUEL, FurnaceInventory::SLOT_RESULT] as $slot) {
-                    // Hoppers either pull empty buckets from the furnace's fuel slot or pull from its result slot.
-                    // They prioritise pulling from the fuel slot over the result slot.
-                    $item = $originTile->getInventory()->getItem($slot);
-                    if ($slot === FurnaceInventory::SLOT_FUEL && !$item instanceof Bucket) {
-                        continue;
-                    }
-                    if ($item->isNull()) {
-                        continue;
-                    }
-                    if ($item->getCount() >= $itemsToTransfer) {
-                        $itemToPull = $item->pop($itemsToTransfer);
-                    } else {
-                        $itemToPull = $item->pop($item->getCount());
-                    }
-                    if(!$inventory->canAddItem($itemToPull)){
-                        continue;
-                    }
+	            foreach ([FurnaceInventory::SLOT_FUEL, FurnaceInventory::SLOT_RESULT] as $slot) {
+		            // Hoppers either pull empty buckets from the furnace's fuel slot or pull from its result slot.
+		            // They prioritise pulling from the fuel slot over the result slot.
+		            $item = $originTile->getInventory()->getItem($slot);
+		            if ($slot === FurnaceInventory::SLOT_FUEL && !$item instanceof Bucket) {
+			            continue;
+		            }
+		            if ($item->isNull()) {
+			            continue;
+		            }
+		            if ($item->getCount() >= $itemsToTransfer) {
+			            $itemToPull = $item->pop($itemsToTransfer);
+		            } else {
+			            $itemToPull = $item->pop($item->getCount());
+		            }
+		            if (!$inventory->canAddItem($itemToPull)) {
+			            continue;
+		            }
 
-                    $event = new HopperPullContainerEvent($this, $inventory, $origin, $originTile->getInventory(), $itemToPull);
-                    $event->call();
-                    if ($event->isCancelled()) {
-                        continue;
-                    }
+		            $event = new HopperPullContainerEvent($this, $inventory, $origin, $originTile->getInventory(), $itemToPull);
+		            $event->call();
+		            if ($event->isCancelled()) {
+			            continue;
+		            }
 
-                    $itemsToTransfer -= $itemToPull->getCount();
-                    $inventory->addItem($itemToPull);
-                    $originTile->getInventory()->setItem($slot, $item);
-                }
+		            $itemsToTransfer -= $itemToPull->getCount();
+		            $inventory->addItem($itemToPull);
+		            $originTile->getInventory()->setItem($slot, $item);
+	            }
+            } elseif ($originTile instanceof BrewingStand) {
+				$brewer = BrewerManager::getInstance()->getBrewer($origin->getPosition());
+
+				if (!$brewer instanceof Brewer) return false;
+				if (!$brewer->isTransferEnabled()) return false;
+				$storage = $brewer->getStorage()->getInventory();
+
+				if (count($storage->getContents()) < 1) return false;
+
+				foreach ($storage->getContents() as $slot => $item) {
+					if ($item->getCount() >= $itemsToTransfer) {
+						$itemToPull = $item->pop($itemsToTransfer);
+					} else {
+						$itemToPull = $item->pop($item->getCount());
+					}
+
+					if (!$inventory->canAddItem($itemToPull)) continue;
+					$event = new HopperPullContainerEvent($this, $inventory, $origin, $originTile->getInventory(), $itemToPull);
+					$event->call();
+
+					if ($event->isCancelled()) continue;
+					$itemsToTransfer -= $itemToPull->getCount();
+					$inventory->addItem($itemToPull);
+					$storage->setItem($slot, $item);
+				}
             } else {
                 for($slot = 0; $slot < $originTile->getInventory()->getSize(); $slot++){
                     $item = $originTile->getInventory()->getItem($slot);
