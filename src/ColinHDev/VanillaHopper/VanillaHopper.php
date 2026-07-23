@@ -9,6 +9,7 @@ use ColinHDev\VanillaHopper\blocks\Hopper;
 use ColinHDev\VanillaHopper\blocks\tiles\Hopper as TileHopper;
 use ColinHDev\VanillaHopper\entities\ItemEntity;
 use ColinHDev\VanillaHopper\listeners\BlockItemPickupListener;
+use ColinHDev\VanillaHopper\listeners\BrewerBrewListener;
 use ColinHDev\VanillaHopper\listeners\ChunkUnloadListener;
 use ColinHDev\VanillaHopper\listeners\EntitySpawnListener;
 use ColinHDev\VanillaHopper\listeners\FurnaceBurnListener;
@@ -71,7 +72,8 @@ class VanillaHopper extends PluginBase {
         );
 
         $this->getServer()->getPluginManager()->registerEvents(new BlockItemPickupListener(), $this);
-        $this->getServer()->getPluginManager()->registerEvents(new ChunkUnloadListener(), $this);
+        $this->getServer()->getPluginManager()->registerEvents(new BrewerBrewListener(), $this);
+		$this->getServer()->getPluginManager()->registerEvents(new ChunkUnloadListener(), $this);
         $this->getServer()->getPluginManager()->registerEvents(new EntitySpawnListener(), $this);
         $this->getServer()->getPluginManager()->registerEvents(new FurnaceBurnListener(), $this);
         $this->getServer()->getPluginManager()->registerEvents(new FurnaceSmeltListener(), $this);
